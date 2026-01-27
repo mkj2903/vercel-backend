@@ -1,3 +1,4 @@
+// backend/models/Product.js - COMPLETE UPDATED
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
@@ -12,13 +13,17 @@ const productSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    enum: ['t-shirts', 'mugs', 'hoodies', 'accessories'],
+    enum: ['t-shirts', 'mugs', 'accessories', 'combos', 'hoodies', 'caps', 'posters'],
     required: true
   },
   subCategory: {
     type: String,
-    enum: ['men', 'women', 'unisex', 'coffee-mug', 'travel-mug'],
-    default: 'unisex'
+    default: ''
+  },
+  gender: {
+    type: String,
+    enum: ['men', 'women', 'unisex', ''],
+    default: ''
   },
   price: {
     type: Number,
@@ -46,7 +51,7 @@ const productSchema = new mongoose.Schema({
   }],
   sizes: [{
     type: String,
-    enum: ['XS', 'S', 'M', 'L', 'XL', 'XXL'],
+    enum: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'One Size'],
     default: ['S', 'M', 'L', 'XL']
   }],
   quantity: {
@@ -60,7 +65,9 @@ const productSchema = new mongoose.Schema({
     M: { type: Number, default: 0 },
     L: { type: Number, default: 0 },
     XL: { type: Number, default: 0 },
-    XXL: { type: Number, default: 0 }
+    XXL: { type: Number, default: 0 },
+    '3XL': { type: Number, default: 0 },
+    'One Size': { type: Number, default: 0 }
   },
   specifications: {
     fabric: String,
@@ -69,7 +76,10 @@ const productSchema = new mongoose.Schema({
     sleeve: String,
     neck: String,
     capacity: String,
-    material: String
+    material: String,
+    dimensions: String,
+    weight: String,
+    brand: String
   },
   careInstructions: [String],
   tags: [String],
@@ -94,9 +104,42 @@ const productSchema = new mongoose.Schema({
   reviewCount: {
     type: Number,
     default: 0
+  },
+  // Additional fields for better filtering
+  showName: {
+    type: String,
+    default: ''
+  },
+  season: {
+    type: String,
+    enum: ['winter', 'summer', 'all-season', ''],
+    default: ''
+  },
+  isBestSeller: {
+    type: Boolean,
+    default: false
+  },
+  isNewArrival: {
+    type: Boolean,
+    default: true
+  },
+  sku: {
+    type: String,
+    unique: true,
+    sparse: true
   }
 }, {
   timestamps: true
+});
+
+// Generate SKU before saving
+productSchema.pre('save', function(next) {
+  if (!this.sku) {
+    const prefix = this.category.substring(0, 3).toUpperCase();
+    const random = Math.floor(1000 + Math.random() * 9000);
+    this.sku = `${prefix}-${Date.now().toString().slice(-6)}-${random}`;
+  }
+  next();
 });
 
 module.exports = mongoose.model('Product', productSchema);
