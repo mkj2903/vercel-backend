@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const cors = require('cors');
 const mongoose = require('mongoose');
 const dotenv = require('dotenv');
@@ -9,25 +10,27 @@ dotenv.config();
 
 const app = express();
 
-// Middleware
-app.use(cors({
-  origin: ['http://localhost:5173'],
-  credentials: true
-}));
+// ✅ UPDATED: CORS configuration
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ✅ ADDED: Serve uploaded images statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const productRoutes = require('./routes/productRoutes');
 const adminRoutes = require('./routes/adminRoutes');
+const couponRoutes = require('./routes/couponRoutes'); // ✅ ADDED: Import coupon routes
 
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/coupons', couponRoutes); // ✅ ADDED: Use coupon routes
 
 // Root route
 app.get('/', (req, res) => {
@@ -37,10 +40,14 @@ app.get('/', (req, res) => {
     endpoints: {
       products: '/api/products',
       orders: '/api/orders',
+      coupons: '/api/coupons', // ✅ ADDED
       admin: '/api/admin',
-      health: '/health'
+      health: '/health',
+      apiHealth: '/api/health',
+      uploads: '/uploads/:filename'
     },
-    emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS)
+    emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+    uploadsPath: '/uploads'
   });
 });
 
@@ -147,17 +154,17 @@ app.get('/health', (req, res) => {
     message: 'Server is running',
     timestamp: new Date().toISOString(),
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS)
+    emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS),
+    uploadsPath: '/uploads'
   });
 });
 
-// ✅ UPDATED: Health check for /api/health
+// ✅ UPDATED: Health check for /api/health - Simplified version
 app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'API is working',
-    timestamp: new Date().toISOString(),
-    emailConfigured: !!(process.env.EMAIL_USER && process.env.EMAIL_PASS)
+  res.json({ 
+    status: 'OK', 
+    message: 'Server is running',
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -249,6 +256,8 @@ app.listen(PORT, () => {
   console.log(`🌐 http://localhost:${PORT}`);
   console.log(`📊 Health check: http://localhost:${PORT}/health`);
   console.log(`🛒 API base: http://localhost:${PORT}/api`);
+  console.log(`🎫 Coupon API: http://localhost:${PORT}/api/coupons`); // ✅ ADDED
+  console.log(`📁 Uploads: http://localhost:${PORT}/uploads`);
   console.log(`📧 Email service: ${process.env.EMAIL_USER ? '✅ Configured' : '❌ Not configured'}`);
   console.log('========================================');
 });

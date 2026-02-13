@@ -1,4 +1,3 @@
-// backend/models/Product.js - COMPLETE UPDATED
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
@@ -9,12 +8,12 @@ const productSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: true
+    default: ''
   },
   category: {
     type: String,
-    enum: ['t-shirts', 'mugs', 'accessories', 'combos', 'hoodies', 'caps', 'posters'],
-    required: true
+    required: true,
+    index: true
   },
   subCategory: {
     type: String,
@@ -22,18 +21,16 @@ const productSchema = new mongoose.Schema({
   },
   gender: {
     type: String,
-    enum: ['men', 'women', 'unisex', ''],
     default: ''
   },
   price: {
     type: Number,
     required: true,
-    min: 0
+    min: 1
   },
   mrp: {
     type: Number,
-    required: true,
-    min: 0
+    default: 0
   },
   discount: {
     type: Number,
@@ -41,48 +38,39 @@ const productSchema = new mongoose.Schema({
     min: 0,
     max: 100
   },
-  images: [{
-    type: String,
-    required: true
-  }],
-  colors: [{
-    type: String,
-    default: ['Black', 'White', 'Red', 'Blue']
-  }],
-  sizes: [{
-    type: String,
-    enum: ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL', 'One Size'],
-    default: ['S', 'M', 'L', 'XL']
-  }],
+  // ✅ FIXED: SIMPLE IMAGES ARRAY
+  images: {
+    type: [String],
+    default: []
+  },
+  colors: {
+    type: [String],
+    default: ['Black']
+  },
+  sizes: {
+    type: [String],
+    default: []
+  },
   quantity: {
     type: Number,
     default: 0,
     min: 0
   },
-  sizeWiseStock: {
-    XS: { type: Number, default: 0 },
-    S: { type: Number, default: 0 },
-    M: { type: Number, default: 0 },
-    L: { type: Number, default: 0 },
-    XL: { type: Number, default: 0 },
-    XXL: { type: Number, default: 0 },
-    '3XL': { type: Number, default: 0 },
-    'One Size': { type: Number, default: 0 }
-  },
   specifications: {
-    fabric: String,
-    fit: String,
-    printType: String,
-    sleeve: String,
-    neck: String,
-    capacity: String,
-    material: String,
-    dimensions: String,
-    weight: String,
-    brand: String
+    material: { type: String, default: 'Cotton' },
+    brand: { type: String, default: 'TV Merchandise' },
+    weight: { type: String, default: '' },
+    dimensions: { type: String, default: '' },
+    washCare: { type: String, default: 'Machine wash cold' }
   },
-  careInstructions: [String],
-  tags: [String],
+  careInstructions: {
+    type: [String],
+    default: []
+  },
+  tags: {
+    type: [String],
+    default: []
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -91,28 +79,32 @@ const productSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  dealOfDay: {
+    type: Boolean,
+    default: false
+  },
+  dealExpiry: {
+    type: Date,
+    default: null
+  },
   salesCount: {
     type: Number,
     default: 0
   },
   avgRating: {
     type: Number,
-    default: 0,
-    min: 0,
-    max: 5
+    default: 0
   },
   reviewCount: {
     type: Number,
     default: 0
   },
-  // Additional fields for better filtering
   showName: {
     type: String,
     default: ''
   },
   season: {
     type: String,
-    enum: ['winter', 'summer', 'all-season', ''],
     default: ''
   },
   isBestSeller: {
@@ -132,14 +124,64 @@ const productSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Generate SKU before saving
+// ✅ FIXED: SINGLE PRE-SAVE HOOK WITHOUT "next" ERROR
 productSchema.pre('save', function(next) {
-  if (!this.sku) {
-    const prefix = this.category.substring(0, 3).toUpperCase();
-    const random = Math.floor(1000 + Math.random() * 9000);
-    this.sku = `${prefix}-${Date.now().toString().slice(-6)}-${random}`;
+  try {
+    // Generate SKU if not provided
+    if (!this.sku) {
+      const prefixMap = {
+        't-shirts': 'TSH',
+        'mugs': 'MUG',
+        'accessories': 'ACC',
+        'combos': 'COM',
+        'hoodies': 'HOD',
+        'caps': 'CAP',
+        'posters': 'PST',
+        'photo-frames': 'FRM',
+        'others': 'OTH'
+      };
+      
+      const prefix = prefixMap[this.category] || 'PRO';
+      const timestamp = Date.now().toString().slice(-6);
+      const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+      this.sku = `${prefix}-${timestamp}-${random}`;
+    }
+    
+    // Set MRP if not provided
+    if (!this.mrp || this.mrp === 0) {
+      this.mrp = this.price;
+    }
+    
+    // ✅ FIXED: Ensure images array exists
+    if (!this.images || !Array.isArray(this.images) || this.images.length === 0) {
+      this.images = ['https://via.placeholder.com/500x500.png?text=TV+Merch+Product'];
+    }
+    
+    // Call next only if it's a function
+    if (typeof next === 'function') {
+      next();
+    }
+  } catch (error) {
+    console.error('Error in pre-save hook:', error);
+    if (typeof next === 'function') {
+      next(error);
+    }
   }
-  next();
 });
+
+// ✅ SIMPLIFIED INDEXES
+productSchema.index({ name: 1 });
+productSchema.index({ category: 1 });
+productSchema.index({ isActive: 1 });
+productSchema.index({ featured: 1 });
+
+// ✅ SIMPLE METHODS
+productSchema.methods.isInStock = function() {
+  return this.quantity > 0;
+};
+
+productSchema.methods.isLowStock = function() {
+  return this.quantity > 0 && this.quantity < 10;
+};
 
 module.exports = mongoose.model('Product', productSchema);
